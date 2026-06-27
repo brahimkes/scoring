@@ -1,10 +1,5 @@
-# --- Donnees lourdes (regenerables via le pipeline) ---
+# --- Source SAS brute (trop lourde, non versionnee) ---
 data/raw/*.sas7bdat
-data/**/*.parquet
-data/**/*.xlsx
-# On garde les resultats legers (figures + metriques)
-!data/results/figures/*.png
-!data/results/metrics/*.csv
 
 # --- Environnement conda ---
 env/
