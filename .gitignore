@@ -1,6 +1,9 @@
 # --- Source SAS brute (trop lourde, non versionnee) ---
 data/raw/*.sas7bdat
 
+# --- Utilitaire local (specifique a l'environnement) ---
+proxy_off.ps1
+
 # --- Environnement conda ---
 env/
 !env/.gitkeep
