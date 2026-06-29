@@ -1,0 +1,2 @@
+learning_rate,max_leaf_nodes,min_samples_leaf,l2_regularization,max_iter,PR_AUC
+0.03705963585078022,37,499,2.2443495081336833,402,0.21885722485622475
