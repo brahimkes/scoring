@@ -11,7 +11,7 @@ Deux niveaux d'interpretation :
 On travaille sur un echantillon du test (rapidite).
 """
 import sys, pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))  # -> src/
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import pandas as pd
 import numpy as np
@@ -25,22 +25,16 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 import config as cfg
 from modelisation import features as F
 
-SAMPLE_SIZE = 5000   # taille de l'echantillon pour SHAP (rapidite)
+SAMPLE_SIZE = 5000
 
 
 def build_model():
-    """Modele retenu avec ses hyperparametres."""
     return HistGradientBoostingClassifier(
         max_iter=600, learning_rate=0.05, max_leaf_nodes=31,
         l2_regularization=3.0, min_samples_leaf=300,
         class_weight="balanced",
         early_stopping=True, validation_fraction=0.1, random_state=0,
     )
-
-
-def get_feature_names(pipe, cat, num):
-    """Recupere les noms de colonnes apres transformation."""
-    return cat + num
 
 
 def main():
@@ -50,7 +44,6 @@ def main():
     train, test = F.temporal_split(gold)
     cat, num = F.get_feature_lists()
 
-    # Entrainement du modele
     print("   Entrainement du modele...")
     pipe = Pipeline([
         ("pre", F.make_preprocessor(cat, num, scale=False)),
@@ -58,22 +51,16 @@ def main():
     ])
     pipe.fit(train[cat + num], train["fraude"])
 
-    # Echantillon du test pour SHAP
     sample = test.sample(min(SAMPLE_SIZE, len(test)), random_state=0)
     X_sample = sample[cat + num]
-
-    # Transformation par le preprocesseur
     X_transformed = pipe["pre"].transform(X_sample)
     feature_names = cat + num
 
-    # Calcul des valeurs SHAP
     print("   Calcul des valeurs SHAP (explainer arbre)...")
     explainer = shap.TreeExplainer(pipe["clf"])
     shap_values = explainer.shap_values(X_transformed)
 
-    # -------------------------------------------------------
     # 1. IMPORTANCE GLOBALE
-    # -------------------------------------------------------
     print("   Generation graphique importance globale...")
     importance = pd.DataFrame({
         "variable": feature_names,
@@ -82,22 +69,18 @@ def main():
 
     importance.to_csv(cfg.METRICS_DIR / "shap_importance.csv", index=False)
 
-    # Graphique beeswarm
     shap.summary_plot(
         shap_values, X_transformed,
         feature_names=feature_names,
         show=False, max_display=15
     )
     plt.tight_layout()
-    plt.savefig(cfg.FIG_DIR / "shap_beeswarm.png", dpi=120,
-                bbox_inches="tight")
+    plt.savefig(cfg.FIG_DIR / "shap_beeswarm.png", dpi=120, bbox_inches="tight")
     plt.close()
 
-    # Graphique importance (barres)
     plt.figure(figsize=(7, 8))
     top15 = importance.head(15)
-    plt.barh(top15["variable"][::-1],
-             top15["SHAP_mean_abs"][::-1], color="#B85042")
+    plt.barh(top15["variable"][::-1], top15["SHAP_mean_abs"][::-1], color="#B85042")
     plt.xlabel("SHAP mean |valeur|")
     plt.title("Importance globale des variables (SHAP)")
     plt.tight_layout()
@@ -107,36 +90,34 @@ def main():
     print(f"   Top 5 variables les plus importantes :")
     print(importance.head(5).round(4).to_string(index=False))
 
-    # -------------------------------------------------------
     # 2. INTERPRETATION LOCALE
-    # top transaction frauduleuse du test
-    # -------------------------------------------------------
     print("\n   Generation graphique interpretation locale...")
-
     p_te = pipe.predict_proba(sample[cat + num])[:, 1]
     sample = sample.copy()
     sample["score"] = p_te
-
-    # Transaction la plus risquee parmi les vraies fraudes
-    fraudes = sample[sample["fraude"] == 1].sort_values(
-        "score", ascending=False)
+    fraudes = sample[sample["fraude"] == 1].sort_values("score", ascending=False)
 
     if len(fraudes) > 0:
         idx = fraudes.index[0]
         pos = sample.index.get_loc(idx)
 
+        expected = explainer.expected_value
+        if hasattr(expected, '__len__'):
+            expected = float(expected[0])
+        else:
+            expected = float(expected)
+
         shap.waterfall_plot(
             shap.Explanation(
                 values=shap_values[pos],
-                base_values=explainer.expected_value,
+                base_values=expected,
                 data=X_transformed[pos],
                 feature_names=feature_names,
             ),
             show=False, max_display=12
         )
         plt.tight_layout()
-        plt.savefig(cfg.FIG_DIR / "shap_local_top_fraude.png",
-                    dpi=120, bbox_inches="tight")
+        plt.savefig(cfg.FIG_DIR / "shap_local_top_fraude.png", dpi=120, bbox_inches="tight")
         plt.close()
         print("   Graphique local -> shap_local_top_fraude.png")
     else:
